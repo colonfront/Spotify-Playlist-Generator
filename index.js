@@ -189,3 +189,20 @@ exports.sammify = async function(access_token, tracks, length, res, req) {
   // return results
   return results.map(e => utils.generateTrackObject(e))
 }
+
+exports.harrify = function (){
+  // algorithm looks up song in lookup matrix generated finds shortest path between two songs
+  // to generate lookup matrix get every song from a playlist and store a 1 linking them in a big lookup matrix
+  // exmaple:
+  // playlists [0,1,2,5] [3,4,5]
+  //          ||
+  //          \/
+  //   0 1 2 3 4 5
+  // 0 1 1 1 0 0 1
+  // 1 1 1 1 0 0 1
+  // 2 1 1 1 0 0 1
+  // 3 0 0 0 1 1 1
+  // 4 0 0 0 1 1 1
+  // 5 1 1 1 1 1 1
+  // this shows there is a path from 3 => 1 through 5 and can be found using any graph traversal algo
+}
