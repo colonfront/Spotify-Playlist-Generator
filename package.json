@@ -1,0 +1,16 @@
+{
+  "name": "spotify-playlist-generator",
+  "version": "0.0.1",
+  "description": "Spotify playlist generator using proprietry algorithm",
+  "main": "index.js",
+  "scripts": {
+    "test": "node test.js",
+    "serve": "node index.js",
+    "dev": "nodemon index.js"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "dotenv": "^10.0.0"
+  }
+}
