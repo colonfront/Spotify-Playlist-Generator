@@ -3,6 +3,7 @@ var https = require("https");
 var url = require("url");
 var fs = require("fs");
 var querystring = require('querystring');
+var utils = require("./utils");
 require('dotenv').config();
 
 const client_id = process.env.client_id
@@ -19,7 +20,7 @@ http.createServer(async function(req, res) {
       exports.handleCallback(req, res)
 
     } else if (req.url.startsWith("/api/search")) {
-      const cookies = exports.getCookies(req.headers.cookie)
+      const cookies = utils.getCookies(req.headers.cookie)
       searchSong = url.parse(req.url,true).query.song;
       var result = await exports.searchSong(cookies.access_token, searchSong, res, req)
       res.end(JSON.stringify(result))
@@ -30,7 +31,7 @@ http.createServer(async function(req, res) {
         data += chunk;
       })
       req.on('end', async () => {
-        const cookies = exports.getCookies(req.headers.cookie)
+        const cookies = utils.getCookies(req.headers.cookie)
         jsondata = JSON.parse(data)
         var result = await exports.generatePlaylist(cookies.access_token, jsondata.tracks, res, req)
         res.writeHead(200, {"Content-Type": "application/json"});
@@ -43,7 +44,7 @@ http.createServer(async function(req, res) {
         data += chunk;
       })
       req.on('end', async () => {
-        const cookies = exports.getCookies(req.headers.cookie)
+        const cookies = utils.getCookies(req.headers.cookie)
         jsondata = JSON.parse(data)
         var result = await exports.sammify(cookies.access_token, jsondata.tracks, jsondata.length || 20, res, req)
         res.writeHead(200, {"Content-Type": "application/json"});
@@ -69,24 +70,6 @@ const getAllFiles = function(dirPath, arrayOfFiles) {
   })
 
   return arrayOfFiles
-}
-
-exports.generateTrackObject = function (track) {
-  return {
-    "id": track.id,
-    "name": track.name,
-    "album": track.album.name,
-    "url": track.external_urls.spotify,
-    "art": track.album.images[1].url,
-    "artists": track.artists.map(artist => { return {
-      "name":artist.name,
-      "url":artist.external_urls.spotify
-    }})
-  }
-}
-
-exports.getCookies = function (cookieHeader) {
-  return url.parse("test?" + (cookieHeader.split("; ").join("&") || ""),true).query;
 }
 
 exports.sendHomepage = function(url, res) {
@@ -129,7 +112,7 @@ exports.handleCallback =function (req, res) {
   var state = queryObject.state || null;
 
   // get the state from the cookie
-  const cookies = exports.getCookies(req.headers.cookie)
+  const cookies = utils.getCookies(req.headers.cookie)
   var storedState = cookies ? cookies.state: null;
 
   if (state === null || state !== storedState) { // something has gone wrong
@@ -180,7 +163,7 @@ exports.handleCallback =function (req, res) {
 }
 exports.refreshToken = function (res, req) {
   return new Promise((resolve, reject) => {
-    const cookies = exports.getCookies(req.headers.cookie)
+    const cookies = utils.getCookies(req.headers.cookie)
     var refresh_token = cookies ? cookies.refresh_token: null;
     if (refresh_token === null) {
       reject()
@@ -324,7 +307,7 @@ async function avgPopularity(access_token, tracks, res, req) {
 
 exports.searchSong = async function(access_token, songName, res, req) {
   var json = await getSpotifyAPI(access_token, `/v1/search?type=track&include_external=audio&q=${encodeURI(songName)}`, res, req)
-  return json.tracks.items.map(e => exports.generateTrackObject(e))
+  return json.tracks.items.map(e => utils.generateTrackObject(e))
 }
 
 exports.generatePlaylist = async function(access_token, tracks, res, req){
@@ -351,11 +334,11 @@ exports.sammify = async function(access_token, tracks, length, res, req) {
   // same goes for top
   if (average_popularity <= results[Math.floor(length/2)].popularity){
     results = results.slice(0, length)
-    return results.map(e => exports.generateTrackObject(e))
+    return results.map(e => utils.generateTrackObject(e))
   }
   if (average_popularity >= results[results.length - Math.floor(length/2)].popularity){
     results = results.slice(results.length - length)
-    return results.map(e => exports.generateTrackObject(e))
+    return results.map(e => utils.generateTrackObject(e))
   }
   // only need to binary search between 2 and 8 (for example above)
   i=Math.floor(length/2)
@@ -401,5 +384,5 @@ exports.sammify = async function(access_token, tracks, length, res, req) {
   results = results.slice(aroundIndex-Math.floor(length/2),aroundIndex+Math.floor(length/2) + 1)
   // return results.map(e=> e.name + " by " + e.artists.map(a => a.name).join(", "))
   // return results
-  return results.map(e => exports.generateTrackObject(e))
+  return results.map(e => utils.generateTrackObject(e))
 }
