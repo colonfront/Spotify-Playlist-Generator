@@ -39,6 +39,9 @@ http.createServer(async function(req, res) {
       req.on('end', async () => {
         const cookies = utils.getCookies(req.headers.cookie)
         jsondata = JSON.parse(data)
+        if (jsondata.tracks.length === 0){
+          return res.end(JSON.stringify({"error":"no tracks supplied"}))
+        }
         var result = await exports.sammify(cookies.access_token, jsondata.tracks, jsondata.length || 20, res, req)
         res.writeHead(200, {"Content-Type": "application/json"});
         res.end(JSON.stringify(result))
@@ -76,86 +79,12 @@ exports.sendHomepage = function(url, res) {
 }
 
 
-function getSpotifyAPI(access_token, path, res, req){
-  console.log(`new get request to: ${path}`)
-  return new Promise((resolve, reject) => {
-    var searchOptions = {
-      hostname:"api.spotify.com",
-      path:path,
-      method: 'GET',
-      headers: {
-        'Authorization': 'Bearer ' + access_token,
-        "Content-Type": "application/json"
-      },
-    };
-    // make the request and store the access_token in the cookies
-    greq = https.request(searchOptions, (gres) => {
-        // console.log(`STATUS: ${gres.statusCode}`)
-        var result = ''
-        gres.on('data', function (chunk) {
-            result += chunk;
-        });
-        gres.on('end', async function () {
-          json = JSON.parse(result)
-
-          console.log(`${JSON.stringify(json).substring(0,200)}...`)
-          if (json.error){
-            if (json.error.message == "The access token expired"){
-              var access_token = await exports.refreshToken(res, req)
-              var result_search = await getSpotifyAPI(access_token, path, res, req)
-              return resolve(result_search)
-            }
-            return reject(json)
-          }
-          resolve(json)
-        });
-    })
-    greq.end()// write the body to the post request
-  })
-}
-
-function postSpotifyAPI(access_token, path, body, res, req){
-  console.log(`new post request to: ${path}`)
-  return new Promise((resolve, reject) => {
-    var searchOptions = {
-      hostname:"api.spotify.com",
-      path:path,
-      method: 'POST',
-      headers: {
-        'Authorization': 'Bearer ' + access_token,
-        "Content-Type": "application/json"
-      },
-    };
-    // make the request and store the access_token in the cookies
-    preq = https.request(searchOptions, (pres) => {
-        // console.log(`STATUS: ${gres.statusCode}`)
-        var result = ''
-        pres.on('data', function (chunk) {
-            result += chunk;
-        });
-        pres.on('end', async function () {
-          json = JSON.parse(result)
-          console.log(`${JSON.stringify(json).substring(0,200)}...`)
-          if (json.error){
-            if (json.error.message == "The access token expired"){
-              var access_token = await exports.refreshToken(res, req)
-              var result_search = await getSpotifyAPI(access_token, path, res, req)
-              return resolve(result_search)
-            }
-            return reject(json)
-          }
-          resolve(json)
-        });
-    })
-    preq.end(JSON.stringify(body))// write the body to the post request
-  })
-}
 
 async function getArtistsTopFromTrack(access_token, track, res, req) {
-  var json = await getSpotifyAPI(access_token, `/v1/tracks/${track}`, res, req)
+  var json = await utils.getSpotifyAPI(access_token, `/v1/tracks/${track}`, res, req)
   artistTT = []
   for (i in json.artists){
-    var result = await getSpotifyAPI(access_token, `/v1/artists/${json.artists[i].href.split("/").pop()}/top-tracks?market=US`, res, req)
+    var result = await utils.getSpotifyAPI(access_token, `/v1/artists/${json.artists[i].href.split("/").pop()}/top-tracks?market=US`, res, req)
     artistTT = artistTT.concat(result.tracks)
   }
   return artistTT;
@@ -173,26 +102,26 @@ async function getArtistsTopFromTracks(access_token, tracks, res, req) {
 async function avgPopularity(access_token, tracks, res, req) {
   total=0
   for (i in tracks){
-    var json = await getSpotifyAPI(access_token, `/v1/tracks/${tracks[i]}`, res, req)
+    var json = await utils.getSpotifyAPI(access_token, `/v1/tracks/${tracks[i]}`, res, req)
     total += json.popularity
   }
   return total/tracks.length;
 }
 
 exports.searchSong = async function(access_token, songName, res, req) {
-  var json = await getSpotifyAPI(access_token, `/v1/search?type=track&include_external=audio&q=${encodeURI(songName)}`, res, req)
+  var json = await utils.getSpotifyAPI(access_token, `/v1/search?type=track&include_external=audio&q=${encodeURI(songName)}`, res, req)
   return json.tracks.items.map(e => utils.generateTrackObject(e))
 }
 
 exports.generatePlaylist = async function(access_token, tracks, res, req){
-  var user = await getSpotifyAPI(access_token, "/v1/me", res, req)
-  var playlist = await postSpotifyAPI(access_token, `/v1/users/${user.id}/playlists`, {"name":"test", "description": "New playlist description","public": true}, res, req)
-  await postSpotifyAPI(access_token, `/v1/playlists/${playlist.id}/tracks`, {"uris":tracks.map(e => `spotify:track:${e}`)}, res, req)
+  var user = await utils.getSpotifyAPI(access_token, "/v1/me", res, req)
+  var playlist = await utils.postSpotifyAPI(access_token, `/v1/users/${user.id}/playlists`, {"name":"test", "description": "New playlist description","public": true}, res, req)
+  await utils.postSpotifyAPI(access_token, `/v1/playlists/${playlist.id}/tracks`, {"uris":tracks.map(e => `spotify:track:${e}`)}, res, req)
   return {"name":playlist.name, "url":playlist.external_urls.spotify, "description": playlist.description}
 }
 
 exports.sammify = async function(access_token, tracks, length, res, req) {
-  results_recc = await getSpotifyAPI(access_token, `/v1/recommendations?seed_tracks=${tracks.join(",")}`, res, req)
+  results_recc = await utils.getSpotifyAPI(access_token, `/v1/recommendations?seed_tracks=${tracks.join(",")}`, res, req)
   results_recc = results_recc.tracks
   results_artist = await getArtistsTopFromTracks(access_token, tracks, res, req)
   // return {"results_recc": results_recc, "results_artist":results_artist}
