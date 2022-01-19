@@ -1,6 +1,7 @@
 <template>
   <div id="app">
-    <a href="/login">login</a>
+    <a href="/login" v-if="!loggedin">login</a>
+    <a href="#" @click="logout" v-else>logout</a>
     <div>
       <input placeholder="searchForSong" @keyup.enter="search"/>
     </div>
@@ -68,6 +69,7 @@ export default {
       searchResults: [],
       genResults: [],
       generatedPlaylist:{"name":"","url":"","description":""},
+      loggedin: false,
     }
   },
   methods:{
@@ -109,6 +111,14 @@ export default {
       var r = await fetch(`/api/search?song=${e.target.value}`);
       this.searchResults = (await r.json())
     },
+    logout() {
+        document.cookie = "access_token=;path=/;expires=Thu, 01 Jan 1970 00:00:01 GMT"
+        document.cookie = "refresh_token=;path=/;expires=Thu, 01 Jan 1970 00:00:01 GMT"
+        this.loggedin = false
+    }
+  }, mounted () {
+    var cookies = decodeURIComponent(document.cookie).split(";").map(c => c.split("=")).filter(c => c[0] == "access_token")
+    this.loggedin = cookies.length == 1 
   }
 }
 </script>
